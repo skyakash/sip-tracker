@@ -1,0 +1,13 @@
+month,source,retrieved_at,sip_contribution_cr,sip_aum_lakh_cr,sip_aum_pct_of_total_aum,contributing_accounts_cr,new_sips_registered_lakh,sips_discontinued_lakh,stoppage_ratio_pct,total_industry_aum_lakh_cr,total_folios_cr,net_equity_inflow_cr,notes
+2025-01,bootstrap_seed,,26400,,,,,,,,,,"Approx figure; start of AMFI dormant-folio reconciliation window (Jan-Apr 2025)"
+2025-03,bootstrap_seed,,25926,13.35,20.31,8.11,,,,,,,"AMFI Monthly Note March 2025; +34.53% YoY vs March 2024"
+2025-04,bootstrap_seed,,,,,,,,353,,,,"Stoppage ratio spike to ~353% — AMFI purged ~1.43 crore dormant SIP folios this month; data artifact, not investor exodus"
+2025-05,bootstrap_seed,,26688,,,,,,72.12,,,,"Stoppage ratio normalizing post reconciliation"
+2025-06,bootstrap_seed,,27269,,,,,,77.8,,,,"+28.3% YoY vs June 2024; FY26 cumulative stoppage ratio still distorted by April spike"
+2025-07,bootstrap_seed,,28464,15.19,20.2,9.11,,,,,,,"New high at the time; +22% YoY vs July 2024 (Rs 23,332 cr); accounts up from 8.65cr"
+2025-08,bootstrap_seed,,28265,15.18,20.2,8.99,,,,,,,"-0.7% MoM; +20% YoY vs August 2024 (Rs 23,547 cr)"
+2025-09,bootstrap_seed,,29361,,,,,,,,,,"Record high at the time; +11% since January 2025; SIP AUM crossed Rs 15 lakh crore"
+2026-02,bootstrap_seed,,29845,,,9.44,,,,,,,"Contributing accounts dip attributed by AMFI to shorter month / debit timing"
+2026-03,bootstrap_seed,,32087,,,9.72,65.70,49.9,76,73.73,,40450,"All-time high SIP contribution; +7.5% MoM; FY-end ELSS 3yr lock-in expiries drove high stoppage; total industry AUM fell on seasonal debt redemptions"
+2026-04,bootstrap_seed,,31115,16.85,20.57,9.65,,,,81.92,,38440.2,"Stoppage ratio crossed 100% this month per secondary analysis — no stated AMFI reconciliation explanation this time, unlike 2025"
+2026-05,bootstrap_seed,,30954,17.12,20.98,9.64,,,,81.58,27.65,22907.77,"53rd/63rd consecutive month of positive equity inflows (sources vary on count basis); +16% YoY vs May 2025 (Rs 26,688 cr); 63rd consecutive month cited by AMFI CEO"
