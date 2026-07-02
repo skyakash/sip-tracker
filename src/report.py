@@ -99,10 +99,17 @@ def draw_chart(df: pd.DataFrame, out_path: pathlib.Path = CHART_PATH) -> pathlib
     ax2.set_ylabel("crore")
     ax2.set_xlabel("Month")
 
+    # sharex=True hides tick labels on the upper two panels by default;
+    # force them back on so each panel is readable on its own, not just
+    # in reference to the bottom one.
     import matplotlib.dates as mdates
-    ax2.xaxis.set_major_locator(mdates.MonthLocator(interval=3))
-    ax2.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
-    plt.setp(ax2.get_xticklabels(), rotation=45, ha="right", fontsize=9)
+    for ax in (ax0, ax1, ax2):
+        ax.xaxis.set_major_locator(mdates.MonthLocator(interval=3))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
+        ax.tick_params(axis="x", labelbottom=True)
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right", fontsize=9)
+    ax0.set_xlabel("Month")
+    ax1.set_xlabel("Month")
     plt.tight_layout()
     plt.savefig(out_path, dpi=150)
     plt.close(fig)
@@ -172,12 +179,19 @@ def compute_insights(df: pd.DataFrame) -> list[str]:
     if eq_month:
         insights.append(f"Net equity inflow ({eq_month}): ₹{eq_val:,.0f} crore.")
 
-    # Outlier months: genuinely unusual MoM swings, worth a second look
+    # Outlier months: genuinely unusual MoM swings, worth a second look. With
+    # only ~24 months of history the z-score itself is noisy -- flag that so
+    # a single-month reading isn't over-trusted.
     for col, label in [("sip_contribution_cr", "SIP contribution"), ("total_industry_aum_lakh_cr", "Total industry AUM")]:
         flagged = trends.outlier_months(df, col)
         if not flagged.empty:
+            n = df[f"{col}_mom_pct"].notna().sum()
             parts = [f"{r['month']} ({r[f'{col}_mom_pct']:+.1f}% MoM)" for _, r in flagged.iterrows()]
-            insights.append(f"Unusual {label} months (>2σ MoM move): {', '.join(parts)}.")
+            insights.append(
+                f"Unusual {label} months (>2σ MoM move, of {n} months' worth of MoM data): {', '.join(parts)}. "
+                "Small-sample caveat: with under two years of history the z-score threshold itself is noisy, "
+                "so treat this as 'worth a second look', not a statistically robust anomaly detector."
+            )
 
     # Avg ticket size -- flag the purge-window discontinuity so it isn't
     # misread as investors suddenly writing bigger cheques

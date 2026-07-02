@@ -70,9 +70,17 @@ PATTERNS = {
         rf"sip\s*assets?\s*.{{0,20}}?rs\.?\s*{_NUM}\s*lakh\s*crore",
     ],
     "sip_aum_pct_of_total_aum": [
-        # SIP trend table row: "|SIP assets as a % of industry assets|20.3|...|"
-        rf"sip\s*assets?\s*as\s*a\s*%?\s*(?:of\s*industry\s*assets|percentage\s*of\s*industry\s*(?:\s*<br>)?\s*assets)\|{_NUM}",
+        # SIP trend table row, pipe- or space-delimited depending on how the
+        # PDF's table extracted, and "as % of" or "as a % of" depending on
+        # which year's template AMFI used:
+        # "|SIP assets as a % of industry assets|20.3|...|" / "sip assets as % of indus[try assets] 20.1 20.2..."
+        rf"sip\s*assets?\s*as\s*(?:a\s*)?%?\s*(?:of\s*industry\s*assets|percentage\s*of\s*industry\s*(?:\s*<br>)?\s*assets)\|{_NUM}",
+        rf"sip\s*assets?\s*as\s*(?:a\s*)?%?\s*of\s*industry\s*assets\s*{_NUM}",
         rf"constituting\s*~?{_NUM}\s*%\s*of\s*the\s*industry'?s?\s*aum",
+        # "SIP assets ... accounting for ~19.9% of the industry's assets"
+        rf"accounting\s*for\s*~?{_NUM}\s*%\s*of\s*the\s*industry'?s?\s*assets",
+        # "SIP assets as a percentage of industry assets were around 20%"
+        rf"sip\s*assets?\s*as\s*a\s*percentage\s*of\s*industry\s*assets\s*(?:were|was)\s*around\s*{_NUM}\s*%",
     ],
     "contributing_accounts_cr": [
         rf"(?:number|no\.?)\s*of\s*contributing\s*(?:\(active\)\s*)?sip\s*accounts?\s*(?:\(crore\))?\|{_NUM}",
