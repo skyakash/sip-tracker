@@ -31,6 +31,8 @@ class MonthlyRecord:
     total_industry_aum_lakh_cr: Optional[float] = None
     total_folios_cr: Optional[float] = None
     net_equity_inflow_cr: Optional[float] = None
+    net_debt_inflow_cr: Optional[float] = None    # ₹ crore, signed (negative = net outflow)
+    net_hybrid_inflow_cr: Optional[float] = None   # ₹ crore, signed (negative = net outflow)
 
     # Free-text notes worth keeping (e.g. "AMFI folio reconciliation event")
     notes: Optional[str] = None

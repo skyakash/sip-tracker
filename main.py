@@ -77,7 +77,7 @@ def cmd_chart():
     if not db.load_all():
         print("No data to chart yet.")
         return
-    path = report.draw_chart(report._load_df())
+    path = report.draw_chart(report.load_full_df())
     print(f"Chart saved to {path}")
 
 
