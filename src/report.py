@@ -412,8 +412,14 @@ def load_full_df() -> pd.DataFrame:
     return df
 
 
+ENRICHED_PATH = PROCESSED_DIR / "sip_monthly_enriched.csv"
+
+
 def build_report() -> pathlib.Path:
     df = load_full_df()
+    # Persist the derived metrics (MoM/YoY, ticket size, flow shares, Nifty
+    # overlay...) so studies/notebooks can read them instead of recomputing.
+    df.to_csv(ENRICHED_PATH, index=False)
     draw_chart(df)
     draw_cycle_heatmap(df)
     insights = compute_insights(df)

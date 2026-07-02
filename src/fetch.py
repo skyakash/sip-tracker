@@ -11,10 +11,11 @@ from .discover import HEADERS
 RAW_DIR = pathlib.Path(__file__).resolve().parent.parent / "data" / "raw"
 
 
-def download(url: str, month_label: str, kind: str) -> pathlib.Path:
+def download(url: str, month_label: str, kind: str, force: bool = False) -> pathlib.Path:
     """
     kind: "pdf" | "excel"
     month_label: e.g. "May 2026" -> normalized to "2026-05" for the filename
+    force: re-download even if cached (AMFI restates figures occasionally)
     """
     RAW_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -29,7 +30,9 @@ def download(url: str, month_label: str, kind: str) -> pathlib.Path:
     dest = RAW_DIR / f"{normalized}_{kind}.{ext}"
 
     if dest.exists():
-        return dest  # already have it; delete manually to force re-download
+        if not force:
+            return dest  # already have it; use force=True to re-download
+        dest.unlink()
 
     resp = requests.get(url, headers=HEADERS, timeout=60)
     resp.raise_for_status()

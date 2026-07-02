@@ -5,6 +5,7 @@ Usage:
     python main.py seed                     # load bootstrap_seed.csv as a starting point
     python main.py discover                 # list available months + download links found on AMFI
     python main.py fetch-month "May 2026"    # download that month's AMFI Monthly Note PDF and parse it
+    python main.py fetch-month "May 2026" --force   # re-download + show field diffs (revision check)
     python main.py show                      # print the current processed table
     python main.py chart                     # render a quick trend chart to data/processed/sip_trend.png
     python main.py report                    # render chart + key insights to data/processed/report.html
@@ -41,7 +42,7 @@ def cmd_discover():
         print(f"  {link.month_label}: pdf={link.pdf_url}")
 
 
-def cmd_fetch_month(month_label: str):
+def cmd_fetch_month(month_label: str, force: bool = False):
     # The "AMFI Monthly" page (discover_amfi_monthly) turns out to be the
     # Monthly Cumulative Report -- scheme/folio counts by category, with no
     # SIP contribution/AUM/accounts data at all. The only place AMFI itself
@@ -55,9 +56,27 @@ def cmd_fetch_month(month_label: str):
 
     iso_month = fetch._normalize_month(match.month_label)
 
-    path = fetch.download(match.pdf_url, match.month_label, "pdf")
+    path = fetch.download(match.pdf_url, match.month_label, "pdf", force=force)
     print(f"Downloaded Monthly Note PDF to {path}")
     record = parse_pdf.parse_pdf(path, iso_month)
+
+    # Surface revisions: AMFI has restated legacy figures before, so on a
+    # re-fetch show exactly which fields changed vs the stored row.
+    existing = next((r for r in db.load_all() if r.get("month") == iso_month), None)
+    if existing:
+        changes = []
+        for field, new_val in record.to_dict().items():
+            if field in ("month", "retrieved_at", "notes", "source"):
+                continue
+            old_raw = existing.get(field, "")
+            old_val = None if old_raw in ("", None) else float(old_raw)
+            if old_val != new_val:
+                changes.append(f"  {field}: {old_val} -> {new_val}")
+        if changes:
+            print(f"REVISED fields for {iso_month} vs stored row:")
+            print("\n".join(changes))
+        else:
+            print(f"No field changes vs stored row for {iso_month}.")
 
     db.upsert(record)
     print(f"Saved record for {iso_month}:")
@@ -100,10 +119,12 @@ def main():
     elif cmd == "discover":
         cmd_discover()
     elif cmd == "fetch-month":
-        if len(sys.argv) < 3:
-            print('Usage: python main.py fetch-month "May 2026"')
+        args = [a for a in sys.argv[2:] if a != "--force"]
+        force = "--force" in sys.argv[2:]
+        if not args:
+            print('Usage: python main.py fetch-month "May 2026" [--force]')
             return
-        cmd_fetch_month(sys.argv[2])
+        cmd_fetch_month(args[0], force=force)
     elif cmd == "show":
         cmd_show()
     elif cmd == "chart":
