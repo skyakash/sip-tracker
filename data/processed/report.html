@@ -4,11 +4,14 @@
 <meta charset="utf-8">
 <title>AMFI SIP Tracker</title>
 <style>
-  body { font-family: -apple-system, Helvetica, Arial, sans-serif; max-width: 800px;
+  body { font-family: -apple-system, Helvetica, Arial, sans-serif; max-width: 900px;
           margin: 40px auto; padding: 0 20px; color: #1a1a1a; }
   h1 { font-size: 1.4rem; }
   img { max-width: 100%; border: 1px solid #ddd; border-radius: 6px; }
   ul { line-height: 1.6; }
+  table { border-collapse: collapse; font-size: 0.85rem; }
+  th, td { padding: 6px 10px; text-align: right; border-bottom: 1px solid #ddd; }
+  th:first-child, td:first-child { text-align: left; }
   .caveat { color: #666; font-size: 0.9rem; }
   footer { margin-top: 2rem; font-size: 0.8rem; color: #999; }
 </style>
@@ -33,6 +36,68 @@
 <li>Coverage caveat: SIP contribution figure present for 23/24 months -- AMFI's Monthly Note phrasing varies enough that some months' figures aren't extracted yet. Category-wise debt/hybrid net flows are sparser still and only meant as directional context.</li>
 <li>Stoppage ratio / new-vs-discontinued SIP counts are not published in AMFI's Monthly Note at all and are left blank here; treat any stoppage-ratio figure from elsewhere as a secondary-source number, not something this pipeline can independently verify.</li>
 </ul>
-<footer>Generated 2026-07-02 20:35 from data/processed/sip_monthly.csv.</footer>
+<h2>Cycle dashboard</h2>
+<p>Where each flow/macro indicator sits vs its own history (z-scores;
+change-space series only -- levels are never correlated or scored).</p>
+<img src="cycle_heatmap.png" alt="Cycle dashboard heatmap">
+
+<h2>Study A: who absorbs FII selling, and what happens next?</h2>
+<p>Months of unusually heavy FII selling (36-month rolling z-score &lt; -1),
+split by whether domestic mutual funds absorbed the selling (median split of
+MF flow z-score), vs Nifty 50 forward returns. Flow data: NSDL (FPI) and
+SEBI-sourced MF trends, 2007-2026; z-scores need a 36-month warm-up.</p>
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th>Bucket</th>
+      <th>Months</th>
+      <th>1m fwd mean%</th>
+      <th>1m fwd % positive</th>
+      <th>3m fwd mean%</th>
+      <th>3m fwd % positive</th>
+      <th>6m fwd mean%</th>
+      <th>6m fwd % positive</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Heavy FII selling, absorbed by MFs</td>
+      <td>12</td>
+      <td>1.76</td>
+      <td>50.0</td>
+      <td>4.86</td>
+      <td>83.0</td>
+      <td>7.56</td>
+      <td>91.0</td>
+    </tr>
+    <tr>
+      <td>Heavy FII selling, weak MF absorption</td>
+      <td>12</td>
+      <td>-0.62</td>
+      <td>18.0</td>
+      <td>1.69</td>
+      <td>50.0</td>
+      <td>4.12</td>
+      <td>67.0</td>
+    </tr>
+    <tr>
+      <td>All other months (baseline)</td>
+      <td>167</td>
+      <td>0.94</td>
+      <td>58.0</td>
+      <td>2.45</td>
+      <td>60.0</td>
+      <td>5.14</td>
+      <td>67.0</td>
+    </tr>
+  </tbody>
+</table>
+<p class="caveat">Exploratory: ~12 months per selling bucket is far too few
+for statistical significance -- read this as an evidence table consistent
+with the "domestic absorption cushions FII exits" mechanism, not a tested
+trading rule. The March 2026 crash (FPI -1.18 lakh cr, MF +0.99 lakh cr,
+Nifty -11.3%, then +7.5% the next month) is the archetype.</p>
+
+<footer>Generated 2026-07-02 22:02 from data/processed/*.csv (AMFI, NSDL, SEBI-sourced MF trends, GST, yfinance).</footer>
 </body>
 </html>

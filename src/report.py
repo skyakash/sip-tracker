@@ -1,20 +1,23 @@
 """
-Builds a static HTML report: the trend chart plus a handful of computed
-key-insight bullets, both derived straight from data/processed/sip_monthly.csv
-(no hardcoded figures, so it stays correct as more months are backfilled).
+Builds a static HTML report: the trend chart, computed key-insight bullets,
+a cycle dashboard (z-score heatmap of macro/flow indicators), and the Study A
+flow-conditioning table -- all derived from the cached data files, no
+hardcoded figures, so it stays correct as more months are added.
 
 Usage: python main.py report -> writes data/processed/report.html
 """
 
 import pathlib
 
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from . import db, trends, market_data
+from . import db, trends, market_data, flows_fii, macro, study_a
 
 PROCESSED_DIR = pathlib.Path(__file__).resolve().parent.parent / "data" / "processed"
 CHART_PATH = PROCESSED_DIR / "sip_trend.png"
+HEATMAP_PATH = PROCESSED_DIR / "cycle_heatmap.png"
 REPORT_PATH = PROCESSED_DIR / "report.html"
 
 # Jan-Apr 2025: AMFI's dormant-folio reconciliation window (~1.43cr folios
@@ -246,12 +249,121 @@ def compute_insights(df: pd.DataFrame) -> list[str]:
     return insights
 
 
+HEATMAP_MONTHS = 18
+
+# (column in the assembled cycle frame, human label). All are change-space
+# or mean-reverting series, z-scored over their full available history --
+# never raw trending levels (see src/correlate.py's guard for why).
+CYCLE_INDICATORS = [
+    ("fpi_z", "FPI equity flow (36m z)"),
+    ("mf_z", "MF equity flow (36m z)"),
+    ("sip_yoy_z", "SIP contribution YoY% (z)"),
+    ("gst_yoy_z", "GST collections YoY% (z)"),
+    ("nifty_mom_z", "Nifty 50 MoM% (z)"),
+    ("vix_z", "India VIX (z)"),
+]
+
+
+def _full_history_z(series: pd.Series) -> pd.Series:
+    s = pd.to_numeric(series, errors="coerce")
+    return (s - s.mean()) / s.std()
+
+
+def build_cycle_frame(sip_df: pd.DataFrame) -> pd.DataFrame:
+    """One row per month, one z-scored column per indicator. z-scores are
+    computed over each series' full history, then the frame is trimmed to
+    the SIP window for display."""
+    flows = flows_fii.build_flows()
+    flows["fpi_z"] = study_a._rolling_z(flows["fpi_equity_cr"])
+    flows["mf_z"] = study_a._rolling_z(flows["mf_equity_cr"])
+
+    gst = macro.fetch_gst_monthly()
+    gst["gst_yoy_z"] = _full_history_z(gst["gst_collection_cr"].pct_change(12) * 100)
+
+    market = market_data.fetch_market_monthly()
+    market["nifty_mom_z"] = _full_history_z(market["nifty_close"].pct_change() * 100)
+    # VIX is mean-reverting, so a z of the level is meaningful (unlike the
+    # trending rupee/index levels).
+    market["vix_z"] = _full_history_z(market["india_vix"])
+
+    sip = sip_df[["month", "sip_contribution_cr_yoy_pct"]].copy()
+    sip["sip_yoy_z"] = _full_history_z(sip["sip_contribution_cr_yoy_pct"])
+
+    frame = (
+        sip[["month", "sip_yoy_z"]]
+        .merge(flows[["month", "fpi_z", "mf_z"]], on="month", how="left")
+        .merge(gst[["month", "gst_yoy_z"]], on="month", how="left")
+        .merge(market[["month", "nifty_mom_z", "vix_z"]], on="month", how="left")
+        .sort_values("month")
+        .reset_index(drop=True)
+    )
+    return frame.tail(HEATMAP_MONTHS).reset_index(drop=True)
+
+
+def draw_cycle_heatmap(sip_df: pd.DataFrame, out_path: pathlib.Path = HEATMAP_PATH) -> pathlib.Path:
+    frame = build_cycle_frame(sip_df)
+    cols = [c for c, _ in CYCLE_INDICATORS]
+    labels = [l for _, l in CYCLE_INDICATORS]
+    matrix = frame[cols].to_numpy(dtype=float).T  # indicators x months
+
+    fig, ax = plt.subplots(figsize=(11, 4))
+    im = ax.imshow(matrix, aspect="auto", cmap="RdYlGn", vmin=-2.5, vmax=2.5)
+    ax.set_yticks(range(len(labels)), labels=labels, fontsize=9)
+    ax.set_xticks(range(len(frame)), labels=frame["month"], rotation=45, ha="right", fontsize=8)
+    for i in range(matrix.shape[0]):
+        for j in range(matrix.shape[1]):
+            if not np.isnan(matrix[i, j]):
+                ax.text(j, i, f"{matrix[i, j]:+.1f}", ha="center", va="center", fontsize=7)
+    ax.set_title("Cycle dashboard: indicator z-scores by month (green = hot/risk-on, red = cold/stress)")
+    fig.colorbar(im, ax=ax, shrink=0.8)
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150)
+    plt.close(fig)
+    return out_path
+
+
+def study_a_html() -> str:
+    """The Study A bucket table plus its interpretation, as an HTML block."""
+    _, summary = study_a.run_study()
+
+    display = summary.rename(columns={
+        "bucket": "Bucket", "months": "Months",
+        "fwd_1m_mean": "1m fwd mean%", "fwd_1m_pos_pct": "1m fwd % positive",
+        "fwd_3m_mean": "3m fwd mean%", "fwd_3m_pos_pct": "3m fwd % positive",
+        "fwd_6m_mean": "6m fwd mean%", "fwd_6m_pos_pct": "6m fwd % positive",
+    })
+    display["Bucket"] = display["Bucket"].map({
+        "heavy_sell_strong_absorption": "Heavy FII selling, absorbed by MFs",
+        "heavy_sell_weak_absorption": "Heavy FII selling, weak MF absorption",
+        "other": "All other months (baseline)",
+    })
+    keep = ["Bucket", "Months", "1m fwd mean%", "1m fwd % positive",
+            "3m fwd mean%", "3m fwd % positive", "6m fwd mean%", "6m fwd % positive"]
+    table = display[keep].to_html(index=False, border=0)
+
+    return f"""
+<h2>Study A: who absorbs FII selling, and what happens next?</h2>
+<p>Months of unusually heavy FII selling (36-month rolling z-score &lt; -1),
+split by whether domestic mutual funds absorbed the selling (median split of
+MF flow z-score), vs Nifty 50 forward returns. Flow data: NSDL (FPI) and
+SEBI-sourced MF trends, 2007-2026; z-scores need a 36-month warm-up.</p>
+{table}
+<p class="caveat">Exploratory: ~12 months per selling bucket is far too few
+for statistical significance -- read this as an evidence table consistent
+with the "domestic absorption cushions FII exits" mechanism, not a tested
+trading rule. The March 2026 crash (FPI -1.18 lakh cr, MF +0.99 lakh cr,
+Nifty -11.3%, then +7.5% the next month) is the archetype.</p>
+"""
+
+
 def generate_html(df: pd.DataFrame, insights: list[str], out_path: pathlib.Path = REPORT_PATH,
-                   chart_filename: str = "sip_trend.png") -> pathlib.Path:
+                   chart_filename: str = "sip_trend.png",
+                   heatmap_filename: str = "cycle_heatmap.png") -> pathlib.Path:
     rows_html = "\n".join(
         f"<li>{point}</li>" for point in insights
     )
     generated_at = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")
+    study_block = study_a_html()
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -259,11 +371,14 @@ def generate_html(df: pd.DataFrame, insights: list[str], out_path: pathlib.Path 
 <meta charset="utf-8">
 <title>AMFI SIP Tracker</title>
 <style>
-  body {{ font-family: -apple-system, Helvetica, Arial, sans-serif; max-width: 800px;
+  body {{ font-family: -apple-system, Helvetica, Arial, sans-serif; max-width: 900px;
           margin: 40px auto; padding: 0 20px; color: #1a1a1a; }}
   h1 {{ font-size: 1.4rem; }}
   img {{ max-width: 100%; border: 1px solid #ddd; border-radius: 6px; }}
   ul {{ line-height: 1.6; }}
+  table {{ border-collapse: collapse; font-size: 0.85rem; }}
+  th, td {{ padding: 6px 10px; text-align: right; border-bottom: 1px solid #ddd; }}
+  th:first-child, td:first-child {{ text-align: left; }}
   .caveat {{ color: #666; font-size: 0.9rem; }}
   footer {{ margin-top: 2rem; font-size: 0.8rem; color: #999; }}
 </style>
@@ -275,7 +390,12 @@ def generate_html(df: pd.DataFrame, insights: list[str], out_path: pathlib.Path 
 <ul>
 {rows_html}
 </ul>
-<footer>Generated {generated_at} from data/processed/sip_monthly.csv.</footer>
+<h2>Cycle dashboard</h2>
+<p>Where each flow/macro indicator sits vs its own history (z-scores;
+change-space series only -- levels are never correlated or scored).</p>
+<img src="{heatmap_filename}" alt="Cycle dashboard heatmap">
+{study_block}
+<footer>Generated {generated_at} from data/processed/*.csv (AMFI, NSDL, SEBI-sourced MF trends, GST, yfinance).</footer>
 </body>
 </html>
 """
@@ -295,5 +415,6 @@ def load_full_df() -> pd.DataFrame:
 def build_report() -> pathlib.Path:
     df = load_full_df()
     draw_chart(df)
+    draw_cycle_heatmap(df)
     insights = compute_insights(df)
     return generate_html(df, insights)
