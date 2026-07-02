@@ -91,3 +91,17 @@ differences in favor of AMFI.
 - Figures get **revised** — AMFI has restated legacy data before (e.g. a 14 May
   2025 revision). Consider keeping a `retrieved_at` timestamp per row so you can
   tell when a historical row changed on a re-fetch.
+
+## Browser automation (Playwright)
+
+`playwright` is in requirements.txt for one-off investigation of JS-rendered
+pages that plain `requests`/`curl` can't see (used to confirm AMFI's
+`research-information/amfi-data` page is just a UI wrapper around the same
+Monthly/Quarterly Cumulative Report data already covered by `discover.py`,
+not a separate SIP data source). It isn't wired into the actual pipeline —
+`discover.py`/`fetch.py` still use plain `requests` since AMFI's real report
+pages are server-rendered.
+
+`pip install -r requirements.txt` installs the Python package but not the
+browser binary; run `python -m playwright install chromium` once after that
+if you need it for a future investigation.
