@@ -1,0 +1,69 @@
+name: Monthly SIP data update
+
+# AMFI publishes the Monthly Note around the 8th-10th working day of the
+# month for the previous month's data. Exact publish day slips around
+# weekends/holidays, so this runs daily across a window (8th-16th) rather
+# than on one fixed day. Most days in that window will be no-ops: if the
+# note isn't published yet, fetch-month finds nothing and exits cleanly;
+# if it's already been fetched by an earlier run that month, the commit
+# step below detects no underlying data changed and skips pushing --
+# so only the day AMFI actually publishes produces a commit + Pages
+# rebuild, not up to 9 near-duplicate ones.
+on:
+  schedule:
+    - cron: "30 6 8-16 * *" # 06:30 UTC (~noon IST), 8th-16th of each month
+  workflow_dispatch: {} # manual trigger, e.g. to backfill a late month
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Compute target month (previous calendar month)
+        id: month
+        run: |
+          python3 -c "
+          import datetime
+          today = datetime.date.today()
+          last_month_end = today.replace(day=1) - datetime.timedelta(days=1)
+          print('label=' + last_month_end.strftime('%B %Y'))
+          " >> "$GITHUB_OUTPUT"
+
+      - name: Fetch latest month
+        run: python main.py fetch-month "${{ steps.month.outputs.label }}"
+
+      - name: Refresh external data (FII/MF, GST, Nifty/VIX)
+        run: python main.py refresh-external
+
+      - name: Rebuild report
+        run: python main.py report
+
+      - name: Commit and push if underlying data changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A -- ':!amfi-sip-tracker.tar.gz'
+          if git diff --cached --quiet -- \
+              data/processed/sip_monthly.csv \
+              data/processed/fii_dii_monthly.csv \
+              data/processed/gst_monthly.csv \
+              data/processed/nifty_monthly.csv; then
+            echo "No underlying data changed (note likely not published yet) -- skipping commit."
+            git reset
+          else
+            git commit -m "Automated update: ${{ steps.month.outputs.label }}"
+            git push
+          fi

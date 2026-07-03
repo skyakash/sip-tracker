@@ -9,10 +9,11 @@ Usage:
     python main.py show                      # print the current processed table
     python main.py chart                     # render a quick trend chart to data/processed/sip_trend.png
     python main.py report                    # render chart + key insights to data/processed/report.html
+    python main.py refresh-external          # force-refresh FII/MF, GST, Nifty/VIX caches (run before report)
 
 This is intentionally simple (no async, no retries/backoff yet) since it only
-needs to run once a month. Harden it later if you turn this into something
-that runs unattended.
+needs to run once a month. See .github/workflows/monthly-update.yml for the
+scheduled run.
 
 NOTE: fetch-month uses the AMFI Monthly Note (narrative PDF), not the
 "AMFI Monthly" Excel/PDF -- the latter is AMFI's Monthly Cumulative Report
@@ -25,7 +26,7 @@ import pathlib
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
-from src import discover, fetch, parse_pdf, db, report
+from src import discover, fetch, parse_pdf, db, report, flows_fii, macro, market_data
 
 
 def cmd_seed():
@@ -83,6 +84,23 @@ def cmd_fetch_month(month_label: str, force: bool = False):
     print(record.to_dict())
 
 
+def cmd_refresh_external():
+    """Force-refresh the FII/MF flow, GST, and Nifty/VIX caches. These don't
+    change daily, so this is meant to run monthly (before `report`), not on
+    every fetch-month -- see the scheduled workflow."""
+    print("Refreshing FII/MF flows (NSDL + Trendlyne)...")
+    flows = flows_fii.build_flows(force=True)
+    print(f"  {len(flows)} months, {flows['month'].iloc[0]} -> {flows['month'].iloc[-1]}")
+
+    print("Refreshing GST collections...")
+    gst = macro.fetch_gst_monthly(force=True)
+    print(f"  {len(gst)} months, {gst['month'].iloc[0]} -> {gst['month'].iloc[-1]}")
+
+    print("Refreshing Nifty/VIX...")
+    mkt = market_data.fetch_market_monthly(force=True)
+    print(f"  {len(mkt)} months, {mkt['month'].iloc[0]} -> {mkt['month'].iloc[-1]}")
+
+
 def cmd_show():
     rows = db.load_all()
     if not rows:
@@ -131,6 +149,8 @@ def main():
         cmd_chart()
     elif cmd == "report":
         cmd_report()
+    elif cmd == "refresh-external":
+        cmd_refresh_external()
     else:
         print(f"Unknown command: {cmd}")
         print(__doc__)
