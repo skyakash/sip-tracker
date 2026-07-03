@@ -13,11 +13,32 @@
   th, td { padding: 6px 10px; text-align: right; border-bottom: 1px solid #ddd; }
   th:first-child, td:first-child { text-align: left; }
   .caveat { color: #666; font-size: 0.9rem; }
+  .verdict-box { background: #f7f7f2; border: 1px solid #ddd; border-radius: 8px;
+                  padding: 4px 20px 12px; margin-bottom: 1.5rem; }
+  .verdict-box .headline { font-size: 1.05rem; font-weight: 600; }
+  .verdict-box .precedent { font-style: italic; color: #444; }
   footer { margin-top: 2rem; font-size: 0.8rem; color: #999; }
 </style>
 </head>
 <body>
 <h1>AMFI SIP Tracker</h1>
+
+<div class="verdict-box">
+<h2>Current read: who's buying, who's selling</h2>
+<p class="headline">2026-06: foreigners selling heavily, domestic absorption is NOT keeping pace.</p>
+<p class='precedent'>months like this (N=12) historically saw Nifty average +1.7% over the next 3 months (50% of the time positive) -- exploratory, small sample.</p>
+<ul>
+<li>Foreign investors (FII) (2026-06): heavy selling (₹-49,340 cr, -1.0σ vs 36-month norm).</li>
+<li>Domestic mutual funds (2026-06): moderate buying (₹50,786 cr, +0.7σ vs 36-month norm).</li>
+<li>Retail SIP conviction (2026-05): decelerating (moderate growth, +16.0% YoY).</li>
+<li>India VIX (2026-06): 13.6 -- calm volatility regime.</li>
+</ul>
+<p class="caveat">Describes current + recent flow direction and cites
+Study A's historical precedent where applicable. Not a sized trading
+signal -- every bucket here has a small sample (12-24 months); use this to
+read the tape, not as an instruction.</p>
+</div>
+
 <img src="sip_trend.png" alt="Monthly SIP contribution trend">
 <h2>Key insights</h2>
 <ul>
@@ -98,6 +119,6 @@ with the "domestic absorption cushions FII exits" mechanism, not a tested
 trading rule. The March 2026 crash (FPI -1.18 lakh cr, MF +0.99 lakh cr,
 Nifty -11.3%, then +7.5% the next month) is the archetype.</p>
 
-<footer>Generated 2026-07-03 13:32 from data/processed/*.csv (AMFI, NSDL, SEBI-sourced MF trends, GST, yfinance).</footer>
+<footer>Generated 2026-07-03 18:15 from data/processed/*.csv (AMFI, NSDL, SEBI-sourced MF trends, GST, yfinance).</footer>
 </body>
 </html>

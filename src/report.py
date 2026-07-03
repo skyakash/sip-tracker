@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from . import db, trends, market_data, flows_fii, macro, study_a
+from . import db, trends, market_data, flows_fii, macro, study_a, verdict
 
 PROCESSED_DIR = pathlib.Path(__file__).resolve().parent.parent / "data" / "processed"
 CHART_PATH = PROCESSED_DIR / "sip_trend.png"
@@ -364,6 +364,7 @@ def generate_html(df: pd.DataFrame, insights: list[str], out_path: pathlib.Path 
     )
     generated_at = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")
     study_block = study_a_html()
+    verdict_block = verdict.verdict_html(df)
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -380,11 +381,16 @@ def generate_html(df: pd.DataFrame, insights: list[str], out_path: pathlib.Path 
   th, td {{ padding: 6px 10px; text-align: right; border-bottom: 1px solid #ddd; }}
   th:first-child, td:first-child {{ text-align: left; }}
   .caveat {{ color: #666; font-size: 0.9rem; }}
+  .verdict-box {{ background: #f7f7f2; border: 1px solid #ddd; border-radius: 8px;
+                  padding: 4px 20px 12px; margin-bottom: 1.5rem; }}
+  .verdict-box .headline {{ font-size: 1.05rem; font-weight: 600; }}
+  .verdict-box .precedent {{ font-style: italic; color: #444; }}
   footer {{ margin-top: 2rem; font-size: 0.8rem; color: #999; }}
 </style>
 </head>
 <body>
 <h1>AMFI SIP Tracker</h1>
+{verdict_block}
 <img src="{chart_filename}" alt="Monthly SIP contribution trend">
 <h2>Key insights</h2>
 <ul>
