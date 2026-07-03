@@ -62,12 +62,18 @@ PATTERNS = {
         rf"sip\s*(?:contributions?|flows?)\s*(?:remained\s*steadfast\s*at|holding\s*steady\s*at|held\s*steady\s*at)\s*rs\.?\s*{_NUM}\s*crore?",
         # "SIP contributions, which totalled Rs 26,459 crore" / "totalling Rs 26,400 crore for the month"
         rf"sip\s*contributions?.{{0,40}}?totall(?:ed|ing)\s*rs\.?\s*{_NUM}\s*crore",
+        # "flows into SIPs rose 35.51% on-year in february, to Rs 25,999 crore"
+        rf"flows?\s*into\s*sips?\s*rose\s*[\d.]+%\s*on-year.{{0,20}}?to\s*rs\.?\s*{_NUM}\s*crore",
+        # Bare SIP trend table row, space-delimited (no pipes): "sip monthly contributions (in crore) 25,999 26,400..."
+        rf"sip\s*monthly\s*contributions?\s*\(in\s*crore\)\s*{_NUM}",
     ],
     "sip_aum_lakh_cr": [
         rf"sip\s*assets?\s*\(rs\.?\s*in?\s*lakh\s*crore\)\|{_NUM}",
         rf"sip\s*assets?\s*\(rs\s*lakh\s*crore\)\|{_NUM}",
         rf"sip\s*assets?\s*(?:increased|rose|declined|grew|remained).{{0,40}}?rs\.?\s*{_NUM}\s*lakh\s*crore",
         rf"sip\s*assets?\s*.{{0,20}}?rs\.?\s*{_NUM}\s*lakh\s*crore",
+        # Bare SIP trend table row, space-delimited (no pipes)
+        rf"sip\s*assets?\s*\(rs\.?\s*in?\s*lakh\s*crore\)\s*{_NUM}",
     ],
     "sip_aum_pct_of_total_aum": [
         # SIP trend table row, pipe- or space-delimited depending on how the
@@ -109,6 +115,8 @@ PATTERNS = {
         rf"equity\s*fund[s]?\s*category\s*(?:logged|saw|witnessed).{{0,60}}?(?:totalling|amounting\s*to)\s*rs\.?\s*{_NUM}\s*crore",
         rf"category\s*witnessed\s*net\s*inflow\s*of\s*rs\.?\s*{_NUM}\s*crore",
         rf"equity\s*funds?\s*(?:recorded|saw).{{0,80}}?(?:highest-ever\s*)?(?:monthly\s*)?inflows?,?\s*totalling\s*rs\.?\s*{_NUM}\s*crore",
+        # "growth-/equity-oriented schemes witnessed monthly net inflows of Rs 39,688 crore"
+        rf"growth-?\s*/?\s*equity-oriented\s*schemes\s*witnessed\s*(?:monthly\s*)?net\s*inflows?\s*of\s*rs\.?\s*{_NUM}\s*crore",
     ],
 }
 
@@ -172,11 +180,19 @@ def _find_total_industry_aum(text: str) -> float | None:
 
 
 _FLOW_RE = re.compile(
-    r"(?:net\s*)?(inflows?|outflows?)(?:\s*of|,?\s*totalling|\s*amounting\s*to)?\s*rs\.?\s*([\d,]+\.?\d*)\s*crore"
+    # Between the inflow/outflow word and the "of Rs X crore" figure, AMFI
+    # sometimes inserts the category name itself -- "net inflow IN DEBT
+    # FUNDS of Rs 1.29 lakh crore" -- so the connector allows a short
+    # bounded gap, not just an immediate "of"/"totalling"/"amounting to".
+    r"(?:net\s*)?(inflows?|outflows?)(?:.{0,25}?(?:of|totalling|amounting\s*to))?\s*"
+    r"rs\.?\s*([\d,]+\.?\d*)\s*(lakh\s*crore|crore)"
 )
 
 
-_ALL_CATEGORY_WORDS = ("equity fund", "debt fund", "hybrid fund", "sip ")
+_ALL_CATEGORY_WORDS = (
+    "equity fund", "debt fund", "hybrid fund", "sip ",
+    "equity-oriented", "debt-oriented", "hybrid-oriented",
+)
 
 
 def _find_category_net_flow(text: str, keywords: tuple[str, ...]) -> float | None:
@@ -195,9 +211,15 @@ def _find_category_net_flow(text: str, keywords: tuple[str, ...]) -> float | Non
     other_categories = [w for w in _ALL_CATEGORY_WORDS if not any(w in k or k in w for k in keywords)]
     for m in _FLOW_RE.finditer(text):
         ctx = text[max(0, m.start() - 150):m.start()]
-        near_ctx = ctx[-80:]
-        if any(k in ctx for k in keywords) and not any(w in near_ctx for w in other_categories):
+        # The category name can be embedded in the match's own connector
+        # ("net inflow IN DEBT FUNDS of Rs X crore"), not just preceding
+        # text, so the search window includes the match itself.
+        search_window = ctx + m.group(0)
+        near_ctx = search_window[-80:]
+        if any(k in search_window for k in keywords) and not any(w in near_ctx for w in other_categories):
             val = float(m.group(2).replace(",", ""))
+            if "lakh" in m.group(3):
+                val *= 100_000
             return -val if "out" in m.group(1) else val
     return None
 
