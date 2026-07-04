@@ -4,6 +4,8 @@ Personal pipeline to track India's monthly SIP (Systematic Investment Plan) data
 from AMFI's official releases, instead of relying on secondhand headlines that
 round/revise numbers inconsistently.
 
+**Live report:** https://skyakash.github.io/sip-tracker/data/processed/report.html
+
 ## Why this exists
 
 AMFI (Association of Mutual Funds in India) publishes two useful sources every month,
