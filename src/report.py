@@ -19,6 +19,7 @@ PROCESSED_DIR = pathlib.Path(__file__).resolve().parent.parent / "data" / "proce
 CHART_PATH = PROCESSED_DIR / "sip_trend.png"
 HEATMAP_PATH = PROCESSED_DIR / "cycle_heatmap.png"
 GAUGE_PATH = PROCESSED_DIR / "fear_greed_gauge.png"
+HISTORY_GAUGE_PATH = PROCESSED_DIR / "fear_greed_history.png"
 REPORT_PATH = PROCESSED_DIR / "report.html"
 
 # Jan-Apr 2025: AMFI's dormant-folio reconciliation window (~1.43cr folios
@@ -323,14 +324,22 @@ def draw_cycle_heatmap(sip_df: pd.DataFrame, out_path: pathlib.Path = HEATMAP_PA
     return out_path
 
 
-# (min_score, max_score, color, label) -- five 20-point bands spanning the
-# semicircle left (fear) to right (greed), matching sentiment.LABELS.
+# (min_score, max_score, color, label) spanning the semicircle left (fear)
+# to right (greed). Boundaries are derived FROM sentiment.LABELS (not
+# duplicated) so a score's gauge color, heatmap tile color, and text label
+# ("41 -- Fear") always agree -- these three used to have three different
+# sets of hardcoded cutoffs, so e.g. a score of 41 could render as
+# "Neutral" yellow on one chart and "Fear" text on another.
+_BAND_COLORS = {
+    "Extreme Fear": "#b02a2a",
+    "Fear": "#e08030",
+    "Neutral": "#d9c23d",
+    "Greed": "#7ab648",
+    "Extreme Greed": "#2e8b3d",
+}
 GAUGE_BANDS = [
-    (0, 20, "#b02a2a", "Extreme\nFear"),
-    (20, 40, "#e08030", "Fear"),
-    (40, 60, "#d9c23d", "Neutral"),
-    (60, 80, "#7ab648", "Greed"),
-    (80, 100, "#2e8b3d", "Extreme\nGreed"),
+    (lo, min(hi, 100), _BAND_COLORS[label], label.replace(" ", "\n"))
+    for lo, hi, label in sentiment.LABELS
 ]
 
 
@@ -370,7 +379,62 @@ def draw_fear_greed_gauge(reading: dict, out_path: pathlib.Path = GAUGE_PATH) ->
     return out_path
 
 
-def fear_greed_html(sip_df: pd.DataFrame, gauge_filename: str = "fear_greed_gauge.png") -> str:
+MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+def draw_fear_greed_history(sip_df: pd.DataFrame, out_path: pathlib.Path = HISTORY_GAUGE_PATH) -> pathlib.Path:
+    """
+    Calendar-style heatmap: one row per year, one column per month, colored
+    with the exact same 5 bands as the gauge (not a continuous gradient --
+    a discrete ListedColormap/BoundaryNorm pinned to the GAUGE_BANDS
+    cutoffs and colors) so a tile's color means the same thing here as on
+    the dial. Only months with >=3 of 5 components are plotted (same
+    usability gate as latest_reading) -- omitted cells are left blank.
+    """
+    import matplotlib.colors as mcolors
+
+    frame = sentiment.build_fear_greed_frame(sip_df)
+    usable = frame[frame["n_components"] >= 3].copy()
+    if usable.empty:
+        fig, ax = plt.subplots(figsize=(4, 2))
+        ax.text(0.5, 0.5, "Not enough history yet", ha="center", va="center")
+        ax.axis("off")
+        plt.savefig(out_path, dpi=150)
+        plt.close(fig)
+        return out_path
+
+    usable["year"] = usable["month"].str.slice(0, 4).astype(int)
+    usable["month_num"] = usable["month"].str.slice(5, 7).astype(int)
+    years = list(range(usable["year"].min(), usable["year"].max() + 1))
+
+    matrix = np.full((len(years), 12), np.nan)
+    for _, row in usable.iterrows():
+        matrix[years.index(row["year"]), row["month_num"] - 1] = row["composite"]
+
+    cmap = mcolors.ListedColormap([c for _, _, c, _ in GAUGE_BANDS])
+    norm = mcolors.BoundaryNorm([lo for lo, _, _, _ in GAUGE_BANDS] + [100], cmap.N)
+
+    fig, ax = plt.subplots(figsize=(9, max(3, len(years) * 0.35)))
+    masked = np.ma.masked_invalid(matrix)
+    im = ax.imshow(masked, aspect="auto", cmap=cmap, norm=norm)
+    ax.set_xticks(range(12), labels=MONTH_ABBR)
+    ax.set_yticks(range(len(years)), labels=years)
+    for i in range(len(years)):
+        for j in range(12):
+            if not np.isnan(matrix[i, j]):
+                ax.text(j, i, f"{matrix[i, j]:.0f}", ha="center", va="center", fontsize=6.5)
+    ax.set_title("Fear / Greed history (monthly composite, same 5-band scale as the gauge)")
+    band_centers = [(lo + hi) / 2 for lo, hi, _, _ in GAUGE_BANDS]
+    cbar = fig.colorbar(im, ax=ax, ticks=band_centers, shrink=0.9)
+    cbar.ax.set_yticklabels([label for _, _, _, label in GAUGE_BANDS], fontsize=8)
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150)
+    plt.close(fig)
+    return out_path
+
+
+def fear_greed_html(sip_df: pd.DataFrame, gauge_filename: str = "fear_greed_gauge.png",
+                    history_filename: str = "fear_greed_history.png") -> str:
     reading = sentiment.latest_reading(sip_df)
     rows = []
     for c in reading["components"]:
@@ -393,6 +457,13 @@ forward-return model.</p>
 components -- check the breakdown above, not just the headline number, and
 read alongside the "Current read" verdict below for the buy/sell direction
 behind the score.</p>
+<h3>History</h3>
+<img src="{history_filename}" alt="Fear/Greed history heatmap">
+<p class="caveat">Limited to when India VIX data exists (from March 2008 --
+NSE launched the index in late 2007); earlier months can't be scored the
+same way regardless of source, since that component simply didn't exist
+yet. Domestic MF flow data starts July 2014, so 2008-2014 readings use
+only VIX + Nifty momentum + FII flow (3 of 5 components).</p>
 """
 
 
@@ -505,5 +576,6 @@ def build_report() -> pathlib.Path:
     draw_chart(df)
     draw_cycle_heatmap(df)
     draw_fear_greed_gauge(sentiment.latest_reading(df))
+    draw_fear_greed_history(df)
     insights = compute_insights(df)
     return generate_html(df, insights)
