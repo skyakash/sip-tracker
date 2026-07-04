@@ -13,11 +13,12 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from . import db, trends, market_data, flows_fii, macro, study_a, verdict
+from . import db, trends, market_data, flows_fii, macro, study_a, verdict, sentiment
 
 PROCESSED_DIR = pathlib.Path(__file__).resolve().parent.parent / "data" / "processed"
 CHART_PATH = PROCESSED_DIR / "sip_trend.png"
 HEATMAP_PATH = PROCESSED_DIR / "cycle_heatmap.png"
+GAUGE_PATH = PROCESSED_DIR / "fear_greed_gauge.png"
 REPORT_PATH = PROCESSED_DIR / "report.html"
 
 # Jan-Apr 2025: AMFI's dormant-folio reconciliation window (~1.43cr folios
@@ -322,6 +323,79 @@ def draw_cycle_heatmap(sip_df: pd.DataFrame, out_path: pathlib.Path = HEATMAP_PA
     return out_path
 
 
+# (min_score, max_score, color, label) -- five 20-point bands spanning the
+# semicircle left (fear) to right (greed), matching sentiment.LABELS.
+GAUGE_BANDS = [
+    (0, 20, "#b02a2a", "Extreme\nFear"),
+    (20, 40, "#e08030", "Fear"),
+    (40, 60, "#d9c23d", "Neutral"),
+    (60, 80, "#7ab648", "Greed"),
+    (80, 100, "#2e8b3d", "Extreme\nGreed"),
+]
+
+
+def draw_fear_greed_gauge(reading: dict, out_path: pathlib.Path = GAUGE_PATH) -> pathlib.Path:
+    """Semicircular fuel-gauge style dial: fear on the left, greed on the
+    right, a needle pointing at the current composite score."""
+    import matplotlib.patches as mpatches
+
+    fig, ax = plt.subplots(figsize=(7, 4.2), subplot_kw={"aspect": "equal"})
+
+    for lo, hi, color, label in GAUGE_BANDS:
+        theta1, theta2 = 180 - hi * 1.8, 180 - lo * 1.8  # score 0->180deg, 100->0deg
+        wedge = mpatches.Wedge((0, 0), 1.0, theta1, theta2, width=0.35, facecolor=color, edgecolor="white")
+        ax.add_patch(wedge)
+        mid_angle = np.radians((theta1 + theta2) / 2)
+        lx, ly = 1.18 * np.cos(mid_angle), 1.18 * np.sin(mid_angle)
+        ax.text(lx, ly, label, ha="center", va="center", fontsize=8.5)
+
+    score = reading["composite"]
+    if score is not None:
+        angle = np.radians(180 - score * 1.8)
+        ax.plot([0, 0.78 * np.cos(angle)], [0, 0.78 * np.sin(angle)], color="black", linewidth=3, zorder=5)
+        ax.add_patch(mpatches.Circle((0, 0), 0.05, facecolor="black", zorder=6))
+        ax.text(0, -0.35, f"{score:.0f} -- {reading['label']}", ha="center", va="center",
+                fontsize=15, fontweight="bold")
+        ax.text(0, -0.55, f"as of {reading['month']}", ha="center", va="center", fontsize=9, color="#555")
+    else:
+        ax.text(0, -0.3, "Not enough data yet", ha="center", va="center", fontsize=12)
+
+    ax.set_xlim(-1.35, 1.35)
+    ax.set_ylim(-0.65, 1.35)
+    ax.axis("off")
+    ax.set_title("Fear / Greed", fontsize=13, fontweight="bold")
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150)
+    plt.close(fig)
+    return out_path
+
+
+def fear_greed_html(sip_df: pd.DataFrame, gauge_filename: str = "fear_greed_gauge.png") -> str:
+    reading = sentiment.latest_reading(sip_df)
+    rows = []
+    for c in reading["components"]:
+        flag = " <span class='caveat'>(small sample, n={})</span>".format(c.n_history) if c.low_confidence else ""
+        rows.append(f"<li>{c.name}: {c.score:.0f}/100{flag}</li>")
+    rows_html = "\n".join(rows)
+
+    return f"""
+<h2>Fear / Greed gauge</h2>
+<img src="{gauge_filename}" alt="Fear/Greed gauge">
+<p>Same methodology as CNN's Fear &amp; Greed Index: each input is
+percentile-ranked against its own full history, then averaged into a 0-100
+composite. 100 = greediest reading in that series' history, 0 = most
+fearful. This is a sentiment/positioning read, not a valuation or
+forward-return model.</p>
+<ul>
+{rows_html}
+</ul>
+<p class="caveat">A single high/low composite can hide a split between
+components -- check the breakdown above, not just the headline number, and
+read alongside the "Current read" verdict below for the buy/sell direction
+behind the score.</p>
+"""
+
+
 def study_a_html() -> str:
     """The Study A bucket table plus its interpretation, as an HTML block."""
     _, summary = study_a.run_study()
@@ -365,6 +439,7 @@ def generate_html(df: pd.DataFrame, insights: list[str], out_path: pathlib.Path 
     generated_at = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")
     study_block = study_a_html()
     verdict_block = verdict.verdict_html(df)
+    gauge_block = fear_greed_html(df)
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -391,6 +466,7 @@ def generate_html(df: pd.DataFrame, insights: list[str], out_path: pathlib.Path 
 <body>
 <h1>AMFI SIP Tracker</h1>
 {verdict_block}
+{gauge_block}
 <img src="{chart_filename}" alt="Monthly SIP contribution trend">
 <h2>Key insights</h2>
 <ul>
@@ -428,5 +504,6 @@ def build_report() -> pathlib.Path:
     df.to_csv(ENRICHED_PATH, index=False)
     draw_chart(df)
     draw_cycle_heatmap(df)
+    draw_fear_greed_gauge(sentiment.latest_reading(df))
     insights = compute_insights(df)
     return generate_html(df, insights)

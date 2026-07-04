@@ -39,6 +39,25 @@ signal -- every bucket here has a small sample (12-24 months); use this to
 read the tape, not as an instruction.</p>
 </div>
 
+
+<h2>Fear / Greed gauge</h2>
+<img src="fear_greed_gauge.png" alt="Fear/Greed gauge">
+<p>Same methodology as CNN's Fear &amp; Greed Index: each input is
+percentile-ranked against its own full history, then averaged into a 0-100
+composite. 100 = greediest reading in that series' history, 0 = most
+fearful. This is a sentiment/positioning read, not a valuation or
+forward-return model.</p>
+<ul>
+<li>Volatility (India VIX, inverted): 79/100</li>
+<li>Momentum (Nifty 3m return): 68/100</li>
+<li>Foreign flow (FII equity): 3/100</li>
+<li>Domestic flow (MF equity): 96/100</li>
+</ul>
+<p class="caveat">A single high/low composite can hide a split between
+components -- check the breakdown above, not just the headline number, and
+read alongside the "Current read" verdict below for the buy/sell direction
+behind the score.</p>
+
 <img src="sip_trend.png" alt="Monthly SIP contribution trend">
 <h2>Key insights</h2>
 <ul>
@@ -119,6 +138,6 @@ with the "domestic absorption cushions FII exits" mechanism, not a tested
 trading rule. The March 2026 crash (FPI -1.18 lakh cr, MF +0.99 lakh cr,
 Nifty -11.3%, then +7.5% the next month) is the archetype.</p>
 
-<footer>Generated 2026-07-03 18:25 from data/processed/*.csv (AMFI, NSDL, SEBI-sourced MF trends, GST, yfinance).</footer>
+<footer>Generated 2026-07-04 17:35 from data/processed/*.csv (AMFI, NSDL, SEBI-sourced MF trends, GST, yfinance).</footer>
 </body>
 </html>
