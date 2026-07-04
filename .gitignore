@@ -2,6 +2,4 @@ __pycache__/
 *.pyc
 .venv/
 venv/
-data/raw/*
-!data/raw/.gitkeep
 .DS_Store

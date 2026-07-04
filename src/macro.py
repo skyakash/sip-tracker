@@ -185,9 +185,22 @@ def fetch_gst_monthly(force: bool = False) -> pd.DataFrame:
     return merged
 
 
+def load_gst() -> pd.DataFrame:
+    """Read the cached GST series with no network access. Bootstraps with a
+    full fetch if there's no cache yet. (Unlike NSDL's per-year postback
+    loop, Wikipedia+Nexarc are single-page fetches regardless of history
+    length, so fetch_gst_monthly(force=True) is already cheap -- this
+    wrapper exists for the same read/refresh naming split as flows_fii and
+    market_data, not because a full refetch here is expensive.)"""
+    if not CACHE_PATH.exists():
+        return fetch_gst_monthly(force=True)
+    return pd.read_csv(CACHE_PATH)
+
+
 def merge_gst(df: pd.DataFrame) -> pd.DataFrame:
-    """Left-join GST collections onto a monthly dataframe."""
-    gst = fetch_gst_monthly()
+    """Left-join GST collections onto a monthly dataframe. Reads from
+    cache -- no network access."""
+    gst = load_gst()
     return df.merge(gst[["month", "gst_collection_cr"]], on="month", how="left")
 
 

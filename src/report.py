@@ -274,14 +274,14 @@ def build_cycle_frame(sip_df: pd.DataFrame) -> pd.DataFrame:
     """One row per month, one z-scored column per indicator. z-scores are
     computed over each series' full history, then the frame is trimmed to
     the SIP window for display."""
-    flows = flows_fii.build_flows()
+    flows = flows_fii.load_flows()
     flows["fpi_z"] = study_a._rolling_z(flows["fpi_equity_cr"])
     flows["mf_z"] = study_a._rolling_z(flows["mf_equity_cr"])
 
-    gst = macro.fetch_gst_monthly()
+    gst = macro.load_gst()
     gst["gst_yoy_z"] = _full_history_z(gst["gst_collection_cr"].pct_change(12) * 100)
 
-    market = market_data.fetch_market_monthly()
+    market = market_data.load_market()
     market["nifty_mom_z"] = _full_history_z(market["nifty_close"].pct_change() * 100)
     # VIX is mean-reverting, so a z of the level is meaningful (unlike the
     # trending rupee/index levels).

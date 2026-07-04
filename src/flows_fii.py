@@ -154,29 +154,75 @@ def fetch_mf_monthly() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def build_flows(force: bool = False) -> pd.DataFrame:
-    """Merged monthly [month, fpi_equity_cr, mf_equity_cr], cached."""
-    if CACHE_PATH.exists() and not force:
-        return pd.read_csv(CACHE_PATH)
+# On a routine (non-forced) refresh, only re-scrape NSDL this many years
+# back -- catches new months plus any revision to recent figures without
+# re-walking all 20 years of __VIEWSTATE postbacks every run.
+INCREMENTAL_YEARS_BACK = 2
 
-    fpi = fetch_fpi_monthly()
-    mf = fetch_mf_monthly()
-    merged = fpi.merge(mf, on="month", how="outer").sort_values("month").reset_index(drop=True)
 
-    # Drop the current (incomplete) calendar month -- both sources publish
-    # partial month-to-date figures for it.
+def _drop_current_month(df: pd.DataFrame) -> pd.DataFrame:
+    # Both sources publish partial month-to-date figures for the current
+    # calendar month -- always exclude it.
     this_month = datetime.now(timezone.utc).strftime("%Y-%m")
-    merged = merged[merged["month"] < this_month].reset_index(drop=True)
+    return df[df["month"] < this_month].reset_index(drop=True)
+
+
+def build_flows(force: bool = False) -> pd.DataFrame:
+    """
+    Merged monthly [month, fpi_equity_cr, mf_equity_cr], cached.
+
+    force=True (or no cache yet): full historical fetch from NSDL (2007+).
+    force=False (default): incremental -- re-scrape only the last
+    INCREMENTAL_YEARS_BACK years of NSDL data (new months + catches AMFI/
+    NSDL-style revisions to recent figures) and the always-full-table
+    Trendlyne page, then merge over the existing cache rather than
+    replacing it, so older years aren't re-walked every run.
+    """
+    if not force and CACHE_PATH.exists():
+        cached = pd.read_csv(CACHE_PATH).set_index("month")
+        start_year = datetime.now().year - INCREMENTAL_YEARS_BACK
+        fresh_fpi = fetch_fpi_monthly(start_year=start_year).set_index("month")
+        # fetch_mf_monthly() always returns Trendlyne's full table (a single
+        # page load either way, no per-year cost) -- it is NOT limited to
+        # the incremental window like fresh_fpi is. Update each column
+        # independently (fresh value wins where fetched, else keep cached)
+        # rather than merging whole rows: an outer join on whole rows would
+        # otherwise fold in fetch_mf_monthly's pre-2024 months as new rows
+        # with fpi_equity_cr=NaN, clobbering the correctly cached FPI
+        # history for everything outside the NSDL incremental window.
+        fresh_mf = fetch_mf_monthly().set_index("month")
+
+        all_months = cached.index.union(fresh_fpi.index).union(fresh_mf.index)
+        merged = cached.reindex(all_months)
+        merged["fpi_equity_cr"] = fresh_fpi["fpi_equity_cr"].combine_first(merged.get("fpi_equity_cr"))
+        merged["mf_equity_cr"] = fresh_mf["mf_equity_cr"].combine_first(merged.get("mf_equity_cr"))
+        merged = _drop_current_month(merged.reset_index().rename(columns={"index": "month"}).sort_values("month"))
+        merged = merged.reset_index(drop=True)
+    else:
+        fpi = fetch_fpi_monthly()
+        mf = fetch_mf_monthly()
+        merged = _drop_current_month(fpi.merge(mf, on="month", how="outer").sort_values("month"))
+        merged = merged.reset_index(drop=True)
 
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     merged.to_csv(CACHE_PATH, index=False)
     return merged
 
 
+def load_flows() -> pd.DataFrame:
+    """Read the cached flows with no network access -- what report/study/
+    sentiment code should call. `build_flows()` (network fetch, incremental
+    by default) is only for the explicit refresh path (`refresh-external`).
+    Bootstraps with a full fetch if there's no cache yet (e.g. fresh clone
+    without having run refresh-external)."""
+    if not CACHE_PATH.exists():
+        return build_flows(force=True)
+    return pd.read_csv(CACHE_PATH)
+
+
 def merge_flows(df: pd.DataFrame) -> pd.DataFrame:
     """Left-join FII/MF flows onto the SIP dataframe by month."""
-    flows = build_flows()
-    return df.merge(flows, on="month", how="left")
+    return df.merge(load_flows(), on="month", how="left")
 
 
 if __name__ == "__main__":

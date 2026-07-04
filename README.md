@@ -43,13 +43,48 @@ amfi-sip-tracker/
 │   ├── parse_pdf.py      # fallback: extracts key figures from the PDF monthly note
 │   └── db.py              # reads/writes data/processed/sip_monthly.csv
 ├── data/
-│   ├── raw/               # downloaded source files, gitignored except .gitkeep
+│   ├── raw/               # downloaded source PDFs -- committed to git (see below)
 │   └── processed/
 │       ├── sip_monthly.csv        # the clean output table, one row per month
 │       └── bootstrap_seed.csv     # manually-sourced historical data (see below)
 ├── main.py                # CLI: fetch latest month / backfill a range / rebuild CSV
 └── notebooks/              # for ad-hoc charting once you have a few months of data
 ```
+
+## Data storage and fetching philosophy
+
+**Everything is committed to the repo** -- both `data/raw/` (the source PDFs
+downloaded from AMFI/NSDL) and `data/processed/` (parsed CSVs, charts, the
+report). Nothing is gitignored under `data/`. The point is that the GitHub
+repo itself is the full audit trail: you can reproduce every parsed number
+from the exact source document that's checked in, without depending on
+AMFI's site still having that file months or years later.
+
+**Fetching is incremental, not a full re-scrape every time.** `main.py
+fetch-month` already only ever downloads the one month you ask for
+(`fetch.download()` skips re-downloading a cached file unless you pass
+`--force`). The external data fetchers (`src/flows_fii.py`,
+`src/macro.py`, `src/market_data.py`) work the same way now:
+
+- `python main.py refresh-external` (default): re-pulls only the *recent*
+  window from each source -- e.g. `flows_fii.py`'s NSDL scraper only
+  re-walks the last 2 years of its year-by-year postback form instead of
+  all the way back to 2007 -- and merges the fresh values over the
+  existing cache. This catches new months plus any late revision to a
+  recent figure without hammering the source site or re-downloading data
+  that's already correct.
+- `python main.py refresh-external --full`: full historical re-fetch of
+  the same caches, for rebuilding from scratch or if you suspect the
+  incremental merge has drifted from ground truth.
+
+Every module that just *reads* cached data for display (`report.py`,
+`verdict.py`, `sentiment.py`, `study_a.py`) calls a `load_*()` function
+(`flows_fii.load_flows()`, `market_data.load_market()`,
+`macro.load_gst()`) that never touches the network -- only the explicit
+`refresh-external` command (or the scheduled workflow) does. This is why
+`python main.py report` runs in ~1 second: it's reading CSVs, not
+re-fetching Trendlyne/NSDL/yfinance every time you want to look at the
+report.
 
 ## IMPORTANT — network access
 

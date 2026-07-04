@@ -45,7 +45,7 @@ jobs:
       - name: Fetch latest month
         run: python main.py fetch-month "${{ steps.month.outputs.label }}"
 
-      - name: Refresh external data (FII/MF, GST, Nifty/VIX)
+      - name: Incrementally refresh external data (FII/MF, GST, Nifty/VIX)
         run: python main.py refresh-external
 
       - name: Rebuild report

@@ -47,8 +47,8 @@ def _rolling_z(series: pd.Series, window: int = Z_WINDOW) -> pd.Series:
 
 def build_dataset() -> pd.DataFrame:
     """Monthly frame: flows, rolling z-scores, Nifty forward returns."""
-    flows = flows_fii.build_flows()
-    market = market_data.fetch_market_monthly()
+    flows = flows_fii.load_flows()
+    market = market_data.load_market()
     df = flows.merge(market[["month", "nifty_close"]], on="month", how="inner")
     df = df.sort_values("month").reset_index(drop=True)
 

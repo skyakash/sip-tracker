@@ -64,8 +64,8 @@ class Component:
 def build_fear_greed_frame(sip_df: pd.DataFrame) -> pd.DataFrame:
     """One row per month with each component's 0-100 greed score plus the
     composite (mean of whichever components have data that month)."""
-    flows = flows_fii.build_flows()
-    market = market_data.fetch_market_monthly()
+    flows = flows_fii.load_flows()
+    market = market_data.load_market()
 
     market = market.copy()
     market["nifty_3m_return"] = market["nifty_close"].pct_change(3) * 100
@@ -103,8 +103,8 @@ def latest_reading(sip_df: pd.DataFrame) -> dict:
     row = usable.iloc[-1]
     month = row["month"]
 
-    flows = flows_fii.build_flows()
-    market = market_data.fetch_market_monthly().copy()
+    flows = flows_fii.load_flows()
+    market = market_data.load_market().copy()
     market["nifty_3m_return"] = market["nifty_close"].pct_change(3) * 100
 
     def _raw_and_n(df, col, month):

@@ -9,7 +9,8 @@ Usage:
     python main.py show                      # print the current processed table
     python main.py chart                     # render a quick trend chart to data/processed/sip_trend.png
     python main.py report                    # render chart + key insights to data/processed/report.html
-    python main.py refresh-external          # force-refresh FII/MF, GST, Nifty/VIX caches (run before report)
+    python main.py refresh-external          # incrementally refresh FII/MF, GST, Nifty/VIX caches (run before report)
+    python main.py refresh-external --full   # full historical re-fetch of the same caches
 
 This is intentionally simple (no async, no retries/backoff yet) since it only
 needs to run once a month. See .github/workflows/monthly-update.yml for the
@@ -84,20 +85,31 @@ def cmd_fetch_month(month_label: str, force: bool = False):
     print(record.to_dict())
 
 
-def cmd_refresh_external():
-    """Force-refresh the FII/MF flow, GST, and Nifty/VIX caches. These don't
-    change daily, so this is meant to run monthly (before `report`), not on
-    every fetch-month -- see the scheduled workflow."""
-    print("Refreshing FII/MF flows (NSDL + Trendlyne)...")
-    flows = flows_fii.build_flows(force=True)
+def cmd_refresh_external(full: bool = False):
+    """
+    Refresh the FII/MF flow, GST, and Nifty/VIX caches. These don't change
+    daily, so this is meant to run monthly (before `report`), not on every
+    fetch-month -- see the scheduled workflow.
+
+    Default (incremental): only re-pulls the recent window from each source
+    (new months + catches late revisions) and merges over the existing
+    cache -- NSDL's per-year postback loop in particular only walks the
+    last couple of years instead of all the way back to 2007 every run.
+
+    full=True: full historical refetch from every source. Only needed to
+    rebuild a cache from scratch or if you suspect the incremental merge
+    has drifted from a source's ground truth.
+    """
+    print(f"Refreshing FII/MF flows (NSDL + Trendlyne){' [full history]' if full else ''}...")
+    flows = flows_fii.build_flows(force=full)
     print(f"  {len(flows)} months, {flows['month'].iloc[0]} -> {flows['month'].iloc[-1]}")
 
-    print("Refreshing GST collections...")
-    gst = macro.fetch_gst_monthly(force=True)
+    print(f"Refreshing GST collections{' [full history]' if full else ''}...")
+    gst = macro.fetch_gst_monthly(force=full)
     print(f"  {len(gst)} months, {gst['month'].iloc[0]} -> {gst['month'].iloc[-1]}")
 
-    print("Refreshing Nifty/VIX...")
-    mkt = market_data.fetch_market_monthly(force=True)
+    print(f"Refreshing Nifty/VIX{' [full history]' if full else ''}...")
+    mkt = market_data.fetch_market_monthly(force=full)
     print(f"  {len(mkt)} months, {mkt['month'].iloc[0]} -> {mkt['month'].iloc[-1]}")
 
 
@@ -150,7 +162,7 @@ def main():
     elif cmd == "report":
         cmd_report()
     elif cmd == "refresh-external":
-        cmd_refresh_external()
+        cmd_refresh_external(full="--full" in sys.argv[2:])
     else:
         print(f"Unknown command: {cmd}")
         print(__doc__)

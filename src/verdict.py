@@ -125,10 +125,10 @@ def _bucket_precedent(bucket: str) -> str | None:
 def build_verdict(sip_df: pd.DataFrame) -> dict:
     """Returns the components + a rendered headline/detail text for the
     report. sip_df must already carry trends.add_derived_metrics() output."""
-    flows = flows_fii.build_flows()
+    flows = flows_fii.load_flows()
     flows["fpi_z"] = study_a._rolling_z(flows["fpi_equity_cr"])
     flows["mf_z"] = study_a._rolling_z(flows["mf_equity_cr"])
-    market = market_data.fetch_market_monthly()
+    market = market_data.load_market()
 
     fii = _latest_flow_read(flows, "fpi_equity_cr", "fpi_z")
     mf = _latest_flow_read(flows, "mf_equity_cr", "mf_z")
