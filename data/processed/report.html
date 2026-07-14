@@ -30,7 +30,7 @@
 <ul>
 <li>Foreign investors (FII) (2026-06): heavy selling (₹-49,340 cr, -1.0σ vs 36-month norm).</li>
 <li>Domestic mutual funds (2026-06): moderate buying (₹50,786 cr, +0.7σ vs 36-month norm).</li>
-<li>Retail SIP conviction (2026-05): decelerating (moderate growth, +16.0% YoY).</li>
+<li>Retail SIP conviction (2026-06): accelerating (moderate growth, +16.5% YoY).</li>
 <li>India VIX (2026-06): 13.6 -- calm volatility regime.</li>
 </ul>
 <p class="caveat">Describes current + recent flow direction and cites
@@ -52,6 +52,7 @@ forward-return model.</p>
 <li>Momentum (Nifty 3m return): 68/100</li>
 <li>Foreign flow (FII equity): 3/100</li>
 <li>Domestic flow (MF equity): 96/100</li>
+<li>Retail conviction (SIP YoY%): 31/100 <span class='caveat'>(small sample, n=13)</span></li>
 </ul>
 <p class="caveat">A single high/low composite can hide a split between
 components -- check the breakdown above, not just the headline number, and
@@ -68,19 +69,19 @@ only VIX + Nifty momentum + FII flow (3 of 5 components).</p>
 <img src="sip_trend.png" alt="Monthly SIP contribution trend">
 <h2>Key insights</h2>
 <ul>
-<li>Covers 24 months, 2024-06 to 2026-05.</li>
-<li>Latest SIP contribution (2026-05): ₹30,954 crore (-0.5% MoM), +16.0% YoY.</li>
+<li>Covers 25 months, 2024-06 to 2026-06.</li>
+<li>Latest SIP contribution (2026-06): ₹31,781 crore (+2.7% MoM), +16.5% YoY.</li>
 <li>All-time high in this dataset: ₹32,087 crore in 2026-03.</li>
-<li>SIP AUM (2026-05): ₹17.12 lakh crore, 21.0% of total industry AUM.</li>
-<li>Contributing SIP accounts (2026-05): 9.64 crore.</li>
+<li>SIP AUM (2026-06): ₹17.70 lakh crore, 21.5% of total industry AUM.</li>
+<li>Contributing SIP accounts (2026-06): 9.78 crore.</li>
 <li>Net equity inflow (2026-05): ₹22,907 crore.</li>
-<li>Unusual SIP contribution months (>2σ MoM move, of 23 months' worth of MoM data): 2024-07 (+9.7% MoM). Small-sample caveat: with under two years of history the z-score threshold itself is noisy, so treat this as 'worth a second look', not a statistically robust anomaly detector.</li>
-<li>Unusual Total industry AUM months (>2σ MoM move, of 23 months' worth of MoM data): 2026-04 (+11.1% MoM), 2026-03 (-10.1% MoM). Small-sample caveat: with under two years of history the z-score threshold itself is noisy, so treat this as 'worth a second look', not a statistically robust anomaly detector.</li>
-<li>Avg. monthly SIP ticket size (2026-05): ~₹3,211 per account. Note: this jumped across Jan-Apr 2025 mechanically, because the dormant-folio purge shrank the accounts denominator faster than contribution changed -- not a sign of investors suddenly investing more per SIP.</li>
+<li>Unusual SIP contribution months (>2σ MoM move, of 24 months' worth of MoM data): 2024-07 (+9.7% MoM). Small-sample caveat: with under two years of history the z-score threshold itself is noisy, so treat this as 'worth a second look', not a statistically robust anomaly detector.</li>
+<li>Unusual Total industry AUM months (>2σ MoM move, of 24 months' worth of MoM data): 2026-04 (+11.1% MoM), 2026-03 (-10.1% MoM). Small-sample caveat: with under two years of history the z-score threshold itself is noisy, so treat this as 'worth a second look', not a statistically robust anomaly detector.</li>
+<li>Avg. monthly SIP ticket size (2026-06): ~₹3,250 per account. Note: this jumped across Jan-Apr 2025 mechanically, because the dormant-folio purge shrank the accounts denominator faster than contribution changed -- not a sign of investors suddenly investing more per SIP.</li>
 <li>SIP contribution was 135% of net equity inflow in 2026-05 (only 9 months have both figures available; 4 of those months had SIP contribution alone exceed total net equity inflow -- meaning discretionary/lump-sum flow was flat or negative that month).</li>
-<li>SIP contribution MoM change vs. Nifty 50 MoM change: correlation -0.23 across 23 months -- close to zero/weak means SIP flow doesn't move with the market, consistent with the 'systematic investing is resilient through drawdowns' narrative.</li>
+<li>SIP contribution MoM change vs. Nifty 50 MoM change: correlation -0.23 across 24 months -- close to zero/weak means SIP flow doesn't move with the market, consistent with the 'systematic investing is resilient through drawdowns' narrative.</li>
 <li>Worst Nifty 50 month in this window: 2026-03 (-11.3%), vs. SIP contribution that same month: +7.5% MoM.</li>
-<li>Coverage caveat: SIP contribution figure present for 24/24 months -- AMFI's Monthly Note phrasing varies enough that some months' figures aren't extracted yet. Category-wise debt/hybrid net flows are sparser still and only meant as directional context.</li>
+<li>Coverage caveat: SIP contribution figure present for 25/25 months -- AMFI's Monthly Note phrasing varies enough that some months' figures aren't extracted yet. Category-wise debt/hybrid net flows are sparser still and only meant as directional context.</li>
 <li>Stoppage ratio / new-vs-discontinued SIP counts are not published in AMFI's Monthly Note at all and are left blank here; treat any stoppage-ratio figure from elsewhere as a secondary-source number, not something this pipeline can independently verify.</li>
 </ul>
 <h2>Cycle dashboard</h2>
@@ -145,6 +146,6 @@ with the "domestic absorption cushions FII exits" mechanism, not a tested
 trading rule. The March 2026 crash (FPI -1.18 lakh cr, MF +0.99 lakh cr,
 Nifty -11.3%, then +7.5% the next month) is the archetype.</p>
 
-<footer>Generated 2026-07-11 08:19 from data/processed/*.csv (AMFI, NSDL, SEBI-sourced MF trends, GST, yfinance).</footer>
+<footer>Generated 2026-07-14 08:34 from data/processed/*.csv (AMFI, NSDL, SEBI-sourced MF trends, GST, yfinance).</footer>
 </body>
 </html>
